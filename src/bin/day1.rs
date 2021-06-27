@@ -1,5 +1,9 @@
 use std::fs;
 
+pub fn main() {
+    run("input/day1.txt");
+}
+
 pub fn run(filename: &str) {
     let values = integers(filename);
 

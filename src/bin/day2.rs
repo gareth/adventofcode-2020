@@ -1,5 +1,12 @@
-use regex;
+#[macro_use]
+extern crate lazy_static;
+extern crate regex;
+
 use std::{fs, str::FromStr};
+
+pub fn main() {
+    run("input/day2.txt");
+}
 
 pub struct Policy {
     pub char: char,
