@@ -8,36 +8,36 @@ pub fn main() {
     run("input/day2.txt");
 }
 
-pub struct Policy {
+pub struct CountPolicy {
     pub char: char,
     pub min: usize,
     pub max: usize,
 }
 
-impl FromStr for Policy {
+impl FromStr for CountPolicy {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        lazy_static! {
-            static ref RE: regex::Regex = regex::Regex::new(r"(\d+)-(\d+)\s+(\w)").unwrap();
-        }
-        // let re: regex::Regex = regex::Regex::new(r"(\d+)-(\d+)\s+(\w)").unwrap();
-
-        if let Some(captures) = RE.captures(s) {
-            Ok(Policy {
-                char: captures.get(3).unwrap().as_str().chars().next().unwrap(),
-                min: captures.get(1).unwrap().as_str().parse::<usize>().unwrap(),
-                max: captures.get(2).unwrap().as_str().parse::<usize>().unwrap(),
-            })
-        } else {
-            let error = format!("Policy not found in {}", s);
-            Err(error)
-        }
+        let (min, max, char) = parse_policy(s)?;
+        Ok(CountPolicy { char, min, max })
     }
 }
 
+fn parse_policy(s: &str) -> Result<(usize, usize, char), &'static str> {
+    lazy_static! {
+        static ref RE: regex::Regex = regex::Regex::new(r"(\d+)-(\d+)\s+(\w)").unwrap();
+    }
+
+    let captures = RE.captures(s).unwrap();
+
+    Ok((
+        captures.get(1).unwrap().as_str().parse::<usize>().unwrap(),
+        captures.get(2).unwrap().as_str().parse::<usize>().unwrap(),
+        captures.get(3).unwrap().as_str().chars().next().unwrap(),
+    ))
+}
 pub struct Entry {
-    policy: Policy,
+    policy: CountPolicy,
     password: String,
 }
 
@@ -86,13 +86,13 @@ mod tests {
 
     #[test]
     fn parse_policy() {
-        let policy: Policy = "2-7 c".parse().unwrap();
+        let policy: CountPolicy = "2-7 c".parse().unwrap();
 
         assert_eq!(policy.min, 2);
         assert_eq!(policy.max, 7);
         assert_eq!(policy.char, 'c');
 
-        let policy: Policy = "8-12 f".parse().unwrap();
+        let policy: CountPolicy = "8-12 f".parse().unwrap();
 
         assert_eq!(policy.min, 8);
         assert_eq!(policy.max, 12);
