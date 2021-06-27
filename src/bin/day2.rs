@@ -8,34 +8,18 @@ pub fn main() {
     run("input/day2.txt");
 }
 
-pub struct CountPolicy {
-    pub char: char,
-    pub min: usize,
-    pub max: usize,
+pub fn run(filename: &str) {
+    let contents = fs::read_to_string(filename).unwrap();
+    let matches = contents
+        .lines()
+        .filter(|line| {
+            let entry = line.trim().parse::<Entry>();
+            entry.unwrap().valid()
+        })
+        .count();
+    println!("Matching entries: {}", matches);
 }
 
-impl FromStr for CountPolicy {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (min, max, char) = parse_policy(s)?;
-        Ok(CountPolicy { char, min, max })
-    }
-}
-
-fn parse_policy(s: &str) -> Result<(usize, usize, char), &'static str> {
-    lazy_static! {
-        static ref RE: regex::Regex = regex::Regex::new(r"(\d+)-(\d+)\s+(\w)").unwrap();
-    }
-
-    let captures = RE.captures(s).unwrap();
-
-    Ok((
-        captures.get(1).unwrap().as_str().parse::<usize>().unwrap(),
-        captures.get(2).unwrap().as_str().parse::<usize>().unwrap(),
-        captures.get(3).unwrap().as_str().chars().next().unwrap(),
-    ))
-}
 pub struct Entry {
     policy: CountPolicy,
     password: String,
@@ -43,15 +27,7 @@ pub struct Entry {
 
 impl Entry {
     fn valid(&self) -> bool {
-        let policy = &self.policy;
-        let actual = self
-            .password
-            .chars()
-            .into_iter()
-            .filter(|c| *c == policy.char)
-            .count();
-
-        actual >= policy.min && actual <= policy.max
+        self.policy.validate(&self.password)
     }
 }
 
@@ -68,16 +44,48 @@ impl FromStr for Entry {
     }
 }
 
-pub fn run(filename: &str) {
-    let contents = fs::read_to_string(filename).unwrap();
-    let matches = contents
-        .lines()
-        .filter(|line| {
-            let entry = line.trim().parse::<Entry>();
-            entry.unwrap().valid()
-        })
-        .count();
-    println!("Matching entries: {}", matches);
+pub trait Policy {
+    fn validate(&self, s: &str) -> bool;
+}
+
+pub struct CountPolicy {
+    pub char: char,
+    pub min: usize,
+    pub max: usize,
+}
+
+impl Policy for CountPolicy {
+    fn validate(&self, s: &str) -> bool {
+        let actual = s.chars().into_iter().filter(|c| *c == self.char).count();
+
+        actual >= self.min && actual <= self.max
+    }
+}
+
+impl FromStr for CountPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (min, max, char) = parse_policy(s)?;
+        Ok(CountPolicy { char, min, max })
+    }
+}
+
+/// Parse a policy string returning the two numbers and character
+/// Expects a string in a compatible format: `1-2 f`
+fn parse_policy(s: &str) -> Result<(usize, usize, char), &'static str> {
+    lazy_static! {
+        static ref RE: regex::Regex = regex::Regex::new(r"^(\d+)-(\d+)\s+(\w)$").unwrap();
+    }
+
+    let captures = RE.captures(s).unwrap();
+
+    Ok((
+        // TODO: Too many unwraps, be tidier
+        captures.get(1).unwrap().as_str().parse::<usize>().unwrap(),
+        captures.get(2).unwrap().as_str().parse::<usize>().unwrap(),
+        captures.get(3).unwrap().as_str().chars().next().unwrap(),
+    ))
 }
 
 #[cfg(test)]
