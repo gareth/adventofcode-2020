@@ -10,14 +10,20 @@ pub fn main() {
 
 pub fn run(filename: &str) {
     let contents = fs::read_to_string(filename).unwrap();
-    let matches = contents
-        .lines()
+    let matches = matching_entries::<CountPolicy>(&contents);
+    println!("Matching entries: {}", matches);
+}
+
+fn matching_entries<T>(s: &str) -> usize
+where
+    T: Policy,
+{
+    s.lines()
         .filter(|line| {
-            let entry = line.trim().parse::<Entry<CountPolicy>>();
+            let entry = line.trim().parse::<Entry<T>>();
             entry.unwrap().valid()
         })
-        .count();
-    println!("Matching entries: {}", matches);
+        .count()
 }
 
 pub struct Entry<T>
