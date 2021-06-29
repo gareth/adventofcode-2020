@@ -13,38 +13,51 @@ pub fn run(filename: &str) {
     let matches = contents
         .lines()
         .filter(|line| {
-            let entry = line.trim().parse::<Entry>();
+            let entry = line.trim().parse::<Entry<CountPolicy>>();
             entry.unwrap().valid()
         })
         .count();
     println!("Matching entries: {}", matches);
 }
 
-pub struct Entry {
-    policy: CountPolicy,
+pub struct Entry<T>
+where
+    T: Policy,
+{
+    policy: Box<T>,
     password: String,
 }
 
-impl Entry {
+impl<T> Entry<T>
+where
+    T: Policy,
+{
     fn valid(&self) -> bool {
         self.policy.validate(&self.password)
     }
 }
 
-impl FromStr for Entry {
+impl<T> FromStr for Entry<T>
+where
+    T: Policy,
+{
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (policy, password) = s.split_once(": ").ok_or("Couldn't split input")?;
+        let (policy_str, password) = s.split_once(": ").ok_or("Couldn't split input")?;
+        let policy = policy_str.parse::<T>();
 
-        Ok(Entry {
-            policy: policy.parse().unwrap(),
-            password: String::from(password),
-        })
+        match policy {
+            Ok(p) => Ok(Entry {
+                policy: Box::new(p),
+                password: password.to_owned(),
+            }),
+            Err(_) => Err("No entry"),
+        }
     }
 }
 
-pub trait Policy {
+pub trait Policy: FromStr {
     fn validate(&self, s: &str) -> bool;
 }
 
@@ -109,7 +122,7 @@ mod tests {
 
     #[test]
     fn parse_entry() {
-        let entry: Entry = "1-2 a: foo".parse().unwrap();
+        let entry: Entry<CountPolicy> = "1-2 a: foo".parse().unwrap();
 
         assert_eq!(entry.password, "foo");
     }
@@ -118,7 +131,7 @@ mod tests {
     fn entry_valid_with_exact_count() {
         let input = "1-1 x: x";
 
-        let entry = input.parse::<Entry>().unwrap();
+        let entry = input.parse::<Entry<CountPolicy>>().unwrap();
 
         assert!(entry.valid());
     }
@@ -127,7 +140,7 @@ mod tests {
     fn entry_invalid_with_too_few_instances() {
         let input = "2-2 x: x";
 
-        let entry = input.parse::<Entry>().unwrap();
+        let entry = input.parse::<Entry<CountPolicy>>().unwrap();
 
         assert!(!entry.valid());
     }
@@ -136,7 +149,7 @@ mod tests {
     fn entry_invalid_with_too_many_instances() {
         let input = "1-1 x: xx";
 
-        let entry = input.parse::<Entry>().unwrap();
+        let entry = input.parse::<Entry<CountPolicy>>().unwrap();
 
         assert!(!entry.valid());
     }
