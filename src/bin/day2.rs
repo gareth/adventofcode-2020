@@ -10,8 +10,12 @@ pub fn main() {
 
 pub fn run(filename: &str) {
     let contents = fs::read_to_string(filename).unwrap();
+
     let matches = matching_entries::<CountPolicy>(&contents);
-    println!("Matching entries: {}", matches);
+    println!("Matching entries (CountPolicy): {}", matches);
+
+    let matches = matching_entries::<IndexPolicy>(&contents);
+    println!("Matching entries (IndexPolicy): {}", matches);
 }
 
 fn matching_entries<T>(s: &str) -> usize
@@ -90,6 +94,39 @@ impl FromStr for CountPolicy {
     }
 }
 
+struct IndexPolicy {
+    pub char: char,
+    pub first: usize,
+    pub second: usize,
+}
+
+impl Policy for IndexPolicy {
+    fn validate(&self, s: &str) -> bool {
+        let mut iter = s.chars();
+
+        let first = iter.nth(self.first - 1).expect("No first char");
+
+        let second = iter
+            .nth(self.second - self.first - 1)
+            .expect("No second char");
+
+        (first == self.char) != (second == self.char)
+    }
+}
+
+impl FromStr for IndexPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (first, second, char) = parse_policy(s)?;
+        Ok(IndexPolicy {
+            char,
+            first,
+            second,
+        })
+    }
+}
+
 /// Parse a policy string returning the two numbers and character
 /// Expects a string in a compatible format: `1-2 f`
 fn parse_policy(s: &str) -> Result<(usize, usize, char), &'static str> {
@@ -109,54 +146,110 @@ fn parse_policy(s: &str) -> Result<(usize, usize, char), &'static str> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    #[cfg(test)]
+    mod count_policy {
+        use super::super::*;
 
-    #[test]
-    fn parse_policy() {
-        let policy: CountPolicy = "2-7 c".parse().unwrap();
+        #[test]
+        fn parse_policy() {
+            let policy: CountPolicy = "2-7 c".parse().unwrap();
 
-        assert_eq!(policy.min, 2);
-        assert_eq!(policy.max, 7);
-        assert_eq!(policy.char, 'c');
+            assert_eq!(policy.min, 2);
+            assert_eq!(policy.max, 7);
+            assert_eq!(policy.char, 'c');
 
-        let policy: CountPolicy = "8-12 f".parse().unwrap();
+            let policy: CountPolicy = "8-12 f".parse().unwrap();
 
-        assert_eq!(policy.min, 8);
-        assert_eq!(policy.max, 12);
-        assert_eq!(policy.char, 'f');
+            assert_eq!(policy.min, 8);
+            assert_eq!(policy.max, 12);
+            assert_eq!(policy.char, 'f');
+        }
+
+        #[test]
+        fn parse_entry() {
+            let entry: Entry<CountPolicy> = "1-2 a: foo".parse().unwrap();
+
+            assert_eq!(entry.password, "foo");
+        }
+
+        #[test]
+        fn entry_valid_with_exact_count() {
+            let input = "1-1 x: x";
+
+            let entry = input.parse::<Entry<CountPolicy>>().unwrap();
+
+            assert!(entry.valid());
+        }
+
+        #[test]
+        fn entry_invalid_with_too_few_instances() {
+            let input = "2-2 x: x";
+
+            let entry = input.parse::<Entry<CountPolicy>>().unwrap();
+
+            assert!(!entry.valid());
+        }
+
+        #[test]
+        fn entry_invalid_with_too_many_instances() {
+            let input = "1-1 x: xx";
+
+            let entry = input.parse::<Entry<CountPolicy>>().unwrap();
+
+            assert!(!entry.valid());
+        }
     }
 
-    #[test]
-    fn parse_entry() {
-        let entry: Entry<CountPolicy> = "1-2 a: foo".parse().unwrap();
+    mod index_policy {
+        use super::super::*;
 
-        assert_eq!(entry.password, "foo");
-    }
+        #[test]
+        fn parse_policy() {
+            let policy: IndexPolicy = "2-7 c".parse().unwrap();
 
-    #[test]
-    fn entry_valid_with_exact_count() {
-        let input = "1-1 x: x";
+            assert_eq!(policy.first, 2);
+            assert_eq!(policy.second, 7);
+            assert_eq!(policy.char, 'c');
 
-        let entry = input.parse::<Entry<CountPolicy>>().unwrap();
+            let policy: IndexPolicy = "8-12 f".parse().unwrap();
 
-        assert!(entry.valid());
-    }
+            assert_eq!(policy.first, 8);
+            assert_eq!(policy.second, 12);
+            assert_eq!(policy.char, 'f');
+        }
 
-    #[test]
-    fn entry_invalid_with_too_few_instances() {
-        let input = "2-2 x: x";
+        #[test]
+        fn parse_entry() {
+            let entry: Entry<IndexPolicy> = "1-2 a: foo".parse().unwrap();
 
-        let entry = input.parse::<Entry<CountPolicy>>().unwrap();
+            assert_eq!(entry.password, "foo");
+        }
 
-        assert!(!entry.valid());
-    }
+        #[test]
+        fn entry_valid_with_correct_indexes() {
+            let input = "1-3 a: abcde";
 
-    #[test]
-    fn entry_invalid_with_too_many_instances() {
-        let input = "1-1 x: xx";
+            let entry = input.parse::<Entry<IndexPolicy>>().unwrap();
 
-        let entry = input.parse::<Entry<CountPolicy>>().unwrap();
+            assert!(entry.valid());
+        }
 
-        assert!(!entry.valid());
+        #[test]
+        fn entry_invalid_with_no_matching_chars() {
+            let input = "1-3 b: cdefg";
+
+            let entry = input.parse::<Entry<IndexPolicy>>().unwrap();
+
+            assert!(!entry.valid());
+        }
+
+        #[test]
+        fn entry_invalid_with_two_matching_chars() {
+            let input = "2-9 c: ccccccccc";
+
+            let entry = input.parse::<Entry<IndexPolicy>>().unwrap();
+
+            assert!(!entry.valid());
+        }
     }
 }
