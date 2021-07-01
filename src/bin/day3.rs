@@ -10,7 +10,25 @@ fn run(filename: &str) {
 
     let map = Map::new(&contents);
 
-    println!("Trees encoutered: {}", map.navigate(3));
+    day3a(&map);
+    day3b(&map);
+}
+
+fn day3a(map: &Map) {
+    println!("Day 3a");
+    println!("Trees encoutered: {}", map.navigate(3, 1));
+}
+
+fn day3b(map: &Map) {
+    println!("Day 3b");
+
+    let routes = [(1, 1), (3, 1), (5, 1), (7, 1), (1, 2)];
+
+    let answer = routes
+        .iter()
+        .fold(1, |memo, (x, y)| memo * map.navigate(*x, *y));
+
+    println!("Tree product: {}", answer);
 }
 
 struct Map {
@@ -20,10 +38,10 @@ struct Map {
 
 impl Map {
     /// Returns the number of trees encountered when navigating with a specific offset
-    fn navigate(&self, offset: usize) -> i32 {
+    fn navigate(&self, x_offset: usize, y_offset: usize) -> i32 {
         let mut count = 0;
-        for (i, row) in self.tiles.iter().enumerate() {
-            let index = (i * offset) % self.width;
+        for (i, row) in self.tiles.iter().step_by(y_offset).enumerate() {
+            let index = (i * x_offset) % self.width;
             if *row.get(index).unwrap() {
                 count += 1
             }
@@ -93,6 +111,6 @@ mod tests {
 
         let map = Map::new(input);
 
-        assert_eq!(7, map.navigate(3));
+        assert_eq!(7, map.navigate(3, 1));
     }
 }
